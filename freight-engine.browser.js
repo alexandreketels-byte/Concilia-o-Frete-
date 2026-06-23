@@ -44,6 +44,7 @@ const GENERAL_RULES_FALLBACK = {
   pedagioRegiaoNorteUFs: ['PA', 'RR', 'AP', 'TO', 'AM'],
   reentregaPct: 0.5,
   devolucaoPct: 1.0,
+  icmsAliquota: 0.12,
 };
 
 function getTableKey(uf, classe) {
@@ -182,5 +183,15 @@ function calcularFreteTeorico(pedido, cityLookup, secCatLookup, ctx) {
     }
   }
 
-  return { valorTotal, detalhe, classe, pesoCalculo, pesoCubado, erro: null };
+  // ICMS por fora (gross-up): o frete cobrado pela transportadora já inclui ICMS,
+  // então para comparar com o mesmo critério aplicamos: valorComICMS = valorSemICMS / (1 - alíquota)
+  const aliquotaICMS = (general.icmsAliquota !== undefined) ? general.icmsAliquota : 0.12;
+  const valorSemICMS = valorTotal;
+  const valorICMS = aliquotaICMS > 0 ? (valorSemICMS / (1 - aliquotaICMS)) - valorSemICMS : 0;
+  valorTotal = valorSemICMS + valorICMS;
+  if (valorICMS > 0) {
+    detalhe.push({ nome: `ICMS (${(aliquotaICMS * 100).toFixed(0)}% por fora)`, valor: valorICMS });
+  }
+
+  return { valorTotal, valorSemICMS, valorICMS, detalhe, classe, pesoCalculo, pesoCubado, erro: null };
 }
