@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Conciliação e Cotação de Frete — Rodonaves</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+:root{
+  --bg:#0f1115; --panel:#171a21; --panel2:#1d212b; --border:#2a2f3a;
+  --text:#e8eaef; --muted:#8c93a3; --accent:#3d8bfd; --accent2:#2563eb;
+  --ok:#22c55e; --ok-bg:#0f2818; --warn:#f59e0b; --warn-bg:#2a1f0a;
+  --err:#ef4444; --err-bg:#2a1212; --mono:'SF Mono',Consolas,monospace;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;font-size:14px}
+.wrap{max-width:1240px;margin:0 auto;padding:24px 20px 80px}
+header{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:18px;flex-wrap:wrap;gap:8px}
+h1{font-size:19px;margin:0;font-weight:600}
+h1 .sub{color:var(--muted);font-weight:400;font-size:13px;display:block;margin-top:2px}
+.tabs{display:flex;gap:6px;margin-bottom:20px;border-bottom:1px solid var(--border)}
+.tab{padding:10px 16px;cursor:pointer;color:var(--muted);border-bottom:2px solid transparent;font-weight:500;font-size:13.5px}
+.tab.active{color:var(--text);border-bottom-color:var(--accent)}
+.tab:hover{color:var(--text)}
+.panel{display:none}
+.panel.active{display:block}
+.card{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:18px;margin-bottom:16px}
+.card h2{font-size:14px;margin:0 0 12px;color:var(--text);font-weight:600}
+.card h2 .count{color:var(--muted);font-weight:400;font-size:12.5px;margin-left:6px}
+.grid4{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+@media(max-width:900px){.grid4{grid-template-columns:repeat(2,1fr)}}
+.uploadbox{border:1.5px dashed var(--border);border-radius:8px;padding:16px;text-align:center;cursor:pointer;transition:.15s;background:var(--panel2)}
+.uploadbox:hover{border-color:var(--accent)}
+.uploadbox.filled{border-color:var(--ok);border-style:solid;background:var(--ok-bg)}
+.uploadbox input{display:none}
+.uploadbox .icon{font-size:22px;display:block;margin-bottom:6px;opacity:.7}
+.uploadbox .label{font-weight:600;font-size:13px}
+.uploadbox .status{color:var(--muted);font-size:11.5px;margin-top:4px;word-break:break-all}
+.uploadbox.filled .status{color:var(--ok)}
+.btn{background:var(--accent);color:#fff;border:none;padding:10px 18px;border-radius:7px;font-weight:600;cursor:pointer;font-size:13.5px}
+.btn:hover{background:var(--accent2)}
+.btn:disabled{background:#33384a;color:var(--muted);cursor:not-allowed}
+.btn.secondary{background:var(--panel2);border:1px solid var(--border);color:var(--text)}
+.btn.secondary:hover{border-color:var(--accent)}
+.actions{display:flex;gap:10px;align-items:center;margin-top:14px;flex-wrap:wrap}
+table{width:100%;border-collapse:collapse;font-size:12.5px}
+th{text-align:left;padding:8px 10px;color:var(--muted);font-weight:600;border-bottom:1px solid var(--border);white-space:nowrap;position:sticky;top:0;background:var(--panel)}
+td{padding:7px 10px;border-bottom:1px solid var(--border);white-space:nowrap}
+tr:hover td{background:var(--panel2)}
+.tablewrap{max-height:560px;overflow:auto;border-radius:8px;border:1px solid var(--border)}
+.num{text-align:right;font-family:var(--mono)}
+.badge{display:inline-block;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:700}
+.badge.ok{background:var(--ok-bg);color:var(--ok)}
+.badge.warn{background:var(--warn-bg);color:var(--warn)}
+.badge.err{background:var(--err-bg);color:var(--err)}
+.summary{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px}
+@media(max-width:900px){.summary{grid-template-columns:repeat(2,1fr)}}
+.stat{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:14px 16px}
+.stat .v{font-size:22px;font-weight:700;font-family:var(--mono)}
+.stat .l{color:var(--muted);font-size:11.5px;margin-top:2px}
+.stat.ok .v{color:var(--ok)}
+.stat.warn .v{color:var(--warn)}
+.stat.err .v{color:var(--err)}
+select,input[type=number],input[type=text]{background:var(--panel2);border:1px solid var(--border);color:var(--text);padding:8px 10px;border-radius:6px;font-size:13px}
+.filterbar{display:flex;gap:10px;margin-bottom:12px;flex-wrap:wrap;align-items:center}
+.detail-row{display:none}
+.detail-row.open{display:table-row}
+.detail-row td{background:var(--panel2);padding:12px 16px}
+.detail-line{display:flex;justify-content:space-between;padding:3px 0;font-size:12px;color:var(--muted)}
+.detail-line b{color:var(--text);font-weight:500}
+.toggle-btn{cursor:pointer;color:var(--accent);font-size:11.5px;user-select:none}
+.quote-form{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:12px}
+@media(max-width:900px){.quote-form{grid-template-columns:1fr 1fr}}
+.field{display:flex;flex-direction:column;gap:4px}
+.field label{font-size:11.5px;color:var(--muted);font-weight:600}
+.empty-state{text-align:center;color:var(--muted);padding:40px 20px;font-size:13px}
+.note{font-size:12px;color:var(--muted);margin-top:8px;line-height:1.5}
+.errlist{max-height:160px;overflow:auto;font-size:12px;color:var(--err);margin-top:8px}
+.errlist div{padding:3px 0;border-bottom:1px solid var(--border)}
+.resultbox{background:var(--panel2);border:1px solid var(--border);border-radius:8px;padding:16px;margin-top:14px}
+.resultbox .total{font-size:26px;font-weight:700;font-family:var(--mono);color:var(--accent)}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+  <h1>Conciliação e Cotação de Frete<span class="sub">Rodonaves · faixa de peso/cubagem · taxas por cidade</span></h1>
+</header>
+
+<div class="tabs">
+  <div class="tab active" data-tab="dados">1. Arquivos</div>
+  <div class="tab" data-tab="conciliacao">2. Conciliação</div>
+  <div class="tab" data-tab="cotacao">3. Cotação</div>
+</div>
+
+<!-- ===================== TAB: DADOS ===================== -->
+<div class="panel active" id="panel-dados">
+  <div class="card">
+    <h2>Suba os 4 arquivos</h2>
+    <div class="grid4">
+      <label class="uploadbox" id="box-relatorio">
+        <input type="file" id="file-relatorio" accept=".xls,.xlsx,.html,.htm">
+        <span class="icon">📄</span>
+        <span class="label">Relatório de Frete</span>
+        <span class="status" id="status-relatorio">FreteAnalitico (.xls)</span>
+      </label>
+      <label class="uploadbox" id="box-cidades">
+        <input type="file" id="file-cidades" accept=".xlsx,.xls">
+        <span class="icon">🏙️</span>
+        <span class="label">Relação de Cidades</span>
+        <span class="status" id="status-cidades">Capital / Interior</span>
+      </label>
+      <label class="uploadbox" id="box-tarifa">
+        <input type="file" id="file-tarifa" accept=".xlsx,.xls">
+        <span class="icon">📊</span>
+        <span class="label">Tabela Frete-Peso</span>
+        <span class="status" id="status-tarifa">Faixas por UF/classe</span>
+      </label>
+      <label class="uploadbox" id="box-seccat">
+        <input type="file" id="file-seccat" accept=".xlsx,.xls">
+        <span class="icon">🏷️</span>
+        <span class="label">Taxas SEC-CAT</span>
+        <span class="status" id="status-seccat">Taxas por cidade</span>
+      </label>
+    </div>
+    <div class="actions">
+      <button class="btn" id="btn-process" disabled>Processar arquivos</button>
+      <span class="note" id="process-status"></span>
+    </div>
+    <div class="errlist" id="error-list" style="display:none"></div>
+  </div>
+
+  <div class="card" id="preview-card" style="display:none">
+    <h2>Resumo dos dados carregados</h2>
+    <div class="summary" id="data-summary"></div>
+  </div>
+</div>
+
+<!-- ===================== TAB: CONCILIACAO ===================== -->
+<div class="panel" id="panel-conciliacao">
+  <div id="conciliacao-empty" class="empty-state">Suba e processe os arquivos na aba "Arquivos" para ver a conciliação.</div>
+  <div id="conciliacao-content" style="display:none">
+    <div class="summary" id="conciliacao-summary"></div>
+    <div class="card">
+      <div class="filterbar">
+        <select id="filtro-transportadora"><option value="">Todas as transportadoras</option></select>
+        <select id="filtro-status">
+          <option value="">Todos os status</option>
+          <option value="ok">OK</option>
+          <option value="divergente">Divergente</option>
+          <option value="erro">Erro / cidade não encontrada</option>
+          <option value="sem-tabela">Transportadora sem tabela</option>
+        </select>
+        <input type="text" id="filtro-busca" placeholder="Buscar pedido, NF ou cidade...">
+        <button class="btn secondary" id="btn-export-conciliacao">Exportar Excel</button>
+      </div>
+      <div class="tablewrap">
+        <table id="tabela-conciliacao">
+          <thead>
+            <tr>
+              <th></th><th>Pedido</th><th>NF</th><th>Cidade/UF</th><th>Transportadora</th><th>Tipo Frete</th>
+              <th class="num">Peso (kg)</th><th class="num">Frete Cobrado</th><th class="num">Frete Calculado</th>
+              <th class="num">Diferença</th><th class="num">Dif. %</th><th>Status</th>
+            </tr>
+          </thead>
+          <tbody id="tbody-conciliacao"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===================== TAB: COTACAO ===================== -->
+<div class="panel" id="panel-cotacao">
+  <div id="cotacao-empty" class="empty-state">Suba e processe a relação de cidades e a tabela de tarifas na aba "Arquivos" para cotar fretes.</div>
+  <div id="cotacao-content" style="display:none">
+    <div class="card">
+      <h2>Cotação manual</h2>
+      <div class="quote-form">
+        <div class="field"><label>Cidade destino</label><input type="text" id="q-cidade" placeholder="Ex: Curitiba" list="cidades-list"></div>
+        <div class="field"><label>UF</label><input type="text" id="q-uf" placeholder="Ex: PR" maxlength="2"></div>
+        <div class="field"><label>Peso (kg)</label><input type="number" id="q-peso" placeholder="0" step="0.01"></div>
+        <div class="field"><label>Cubagem (m³)</label><input type="number" id="q-cubagem" placeholder="0" step="0.01"></div>
+        <div class="field"><label>Valor mercadoria (R$)</label><input type="number" id="q-valor" placeholder="0" step="0.01"></div>
+        <div class="field"><label>Tipo de frete</label>
+          <select id="q-tipo">
+            <option value="Entrega Normal">Entrega Normal</option>
+            <option value="Devolucao">Devolução</option>
+            <option value="Reentrega">Reentrega</option>
+          </select>
+        </div>
+        <div class="field"><label>Frete original (se devolução/reentrega)</label><input type="number" id="q-frete-original" placeholder="0" step="0.01"></div>
+      </div>
+      <datalist id="cidades-list"></datalist>
+      <div class="actions"><button class="btn" id="btn-cotar">Calcular frete</button></div>
+      <div class="resultbox" id="cotacao-resultado" style="display:none"></div>
+    </div>
+
+    <div class="card">
+      <h2>Cotação em lote (CSV/Excel) <span class="count">colunas: cidade, uf, peso, cubagem, valor_mercadoria, tipo_frete</span></h2>
+      <div class="actions">
+        <label class="btn secondary" style="cursor:pointer">
+          Selecionar arquivo<input type="file" id="file-cotacao-lote" accept=".xlsx,.xls,.csv" style="display:none">
+        </label>
+        <button class="btn" id="btn-cotar-lote" disabled>Calcular lote</button>
+        <button class="btn secondary" id="btn-export-cotacao" style="display:none">Exportar Excel</button>
+        <span class="note" id="lote-status"></span>
+      </div>
+      <div class="tablewrap" id="lote-resultado-wrap" style="display:none;margin-top:12px">
+        <table id="tabela-cotacao-lote">
+          <thead><tr><th>Cidade/UF</th><th class="num">Peso</th><th class="num">Cubagem</th><th class="num">Frete Calculado</th><th>Status</th></tr></thead>
+          <tbody id="tbody-cotacao-lote"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+</div>
+
+<script src="freight-engine.browser.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
