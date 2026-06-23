@@ -245,6 +245,7 @@ async function parseTabelaTarifa(file) {
     grisMinimoRegiao3: 2.47, grisPctRegiao3: 0.003, grisRegiao3UFs: [],
     pedagioPorFracao100kg: 5.427467, pedagioRegiaoNorteValor: 8.786312, pedagioRegiaoNorteUFs: [],
     reentregaPct: 0.5, devolucaoPct: 1.0,
+    icmsAliquota: 0.12,
   };
 
   function extractUFs(text) {
@@ -349,9 +350,15 @@ async function parseSecCat(file) {
 // ============ MOTOR (usa freight-engine.browser.js + dados carregados) ============
 function buildEngineContext() {
   const tarifa = state.parsed.tarifa;
+  const general = tarifa ? { ...tarifa.general } : {};
+  const icmsInput = document.getElementById('icms-aliquota');
+  if (icmsInput) {
+    const pct = parseFloat(icmsInput.value.replace(',', '.'));
+    general.icmsAliquota = isNaN(pct) ? 0.12 : pct / 100;
+  }
   return {
     table: tarifa ? tarifa.table : {},
-    general: tarifa ? tarifa.general : {},
+    general,
   };
 }
 
@@ -605,12 +612,19 @@ function applyConciliacaoFilters() {
 );
 document.getElementById('filtro-busca').addEventListener('input', applyConciliacaoFilters);
 
+document.getElementById('icms-aliquota').addEventListener('change', () => {
+  if (state.parsed.relatorio) rodarConciliacao();
+});
+
 document.getElementById('btn-export-conciliacao').addEventListener('click', () => {
   const rows = state.conciliacaoRows;
   const data = rows.map(r => ({
     Pedido: r.pedido, NF: r.nf, Cidade: r.cidadeRaw, Transportadora: r.transportadora,
     'Tipo Frete': r.tipoFrete, 'Peso (kg)': r.peso, 'Cubagem (m³)': r.cubagem,
-    'Frete Cobrado': r.freteCobrado, 'Frete Calculado': r.calc.erro ? null : r.calc.valorTotal,
+    'Frete Cobrado': r.freteCobrado,
+    'Frete Calculado (sem ICMS)': r.calc.erro ? null : r.calc.valorSemICMS,
+    'ICMS': r.calc.erro ? null : r.calc.valorICMS,
+    'Frete Calculado (com ICMS)': r.calc.erro ? null : r.calc.valorTotal,
     'Diferença': r.diff, 'Diferença %': r.diffPct, Status: r.status,
     Observação: r.calc.erro || '',
   }));
@@ -718,3 +732,6 @@ document.getElementById('btn-export-cotacao').addEventListener('click', () => {
   XLSX.utils.book_append_sheet(wb, ws, 'Cotação');
   XLSX.writeFile(wb, `cotacao_frete_${new Date().toISOString().slice(0,10)}.xlsx`);
 });
+
+// Exposto para depuração no console do navegador (window.state)
+if (typeof window !== 'undefined') window.state = state;
